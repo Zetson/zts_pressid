@@ -1,26 +1,20 @@
-local showPlayerBlips = false
-local ignorePlayerNameDistance = false
-local playerNamesDist = 15
-local displayIDHeight = 1.5 --inaltimea unde sa fie id-ul fata de sol
---Culoarea cum sa apara la sclavu care vorbeste id-ul
-local red = 255
-local green = 255
-local blue = 255
+local disPlayerNames = 13
+local playerData = {}
 
-function DrawText3D(x,y,z, text) 
+local function DrawText3D(x,y,z, text, r,g,b)
     local onScreen,_x,_y=World3dToScreen2d(x,y,z)
     local px,py,pz=table.unpack(GetGameplayCamCoords())
     local dist = GetDistanceBetweenCoords(px,py,pz, x,y,z, 1)
-
+ 
     local scale = (1/dist)*2
     local fov = (1/GetGameplayCamFov())*100
     local scale = scale*fov
-    
+   
     if onScreen then
         SetTextScale(0.0*scale, 0.55*scale)
-        SetTextFont(0)
+        SetTextFont(1)
         SetTextProportional(1)
-        SetTextColour(red, green, blue, 255)
+        SetTextColour(r, g, b, 255)
         SetTextDropshadow(0, 0, 0, 0, 255)
         SetTextEdge(2, 0, 0, 0, 150)
         SetTextDropShadow()
@@ -28,60 +22,88 @@ function DrawText3D(x,y,z, text)
         SetTextEntry("STRING")
         SetTextCentre(1)
         AddTextComponentString(text)
-		World3dToScreen2d(x,y,z, 0)
         DrawText(_x,_y)
     end
 end
 
-Citizen.CreateThread(function()
-    while true do
-        Citizen.Wait(0)
-        if IsControlPressed(1, 48) then
-            for i=0,99 do
-                N_0x31698aa80e0223f8(i)
-            end
-            for id = 0, 31 do
-                if  ((NetworkIsPlayerActive( id )) and GetPlayerPed( id ) ~= GetPlayerPed( -1 )) then
-                ped = GetPlayerPed( id )
-                blip = GetBlipFromEntity( ped ) 
- 
-                x1, y1, z1 = table.unpack( GetEntityCoords( GetPlayerPed( -1 ), true ) )
-                x2, y2, z2 = table.unpack( GetEntityCoords( GetPlayerPed( id ), true ) )
-                distance = math.floor(GetDistanceBetweenCoords(x1,  y1,  z1,  x2,  y2,  z2,  true))
+AddEventHandler("playerSpawned", function()
+	Citizen.CreateThread(function()
+	    while true do
+	        if IsControlPressed(0, 178) then
+	            for _, id in ipairs(GetActivePlayers()) do
+	    			if NetworkIsPlayerActive(id) then
+	    				if GetPlayerPed(id) ~= GetPlayerPed(-1) then
+	    					local sId = GetPlayerServerId(id)
+	                        if playerData[sId] then
+	                        	if playerData[sId].dst then
+		        					if playerData[sId].dst < disPlayerNames then
+		        						local ped = GetPlayerPed(id)
+										if IsPedInAnyVehicle(ped, false) then
+											local veh = GetVehiclePedIsIn(ped)
+											if not IsThisModelABike(GetEntityModel(veh)) then
+												if GetPedInVehicleSeat(veh, -1) == ped then
+													x2, y2, z2 = table.unpack(GetOffsetFromEntityInWorldCoords(veh, -0.4, 0.0, 0.0))
+												elseif GetPedInVehicleSeat(veh, 0) == ped then
+													x2, y2, z2 = table.unpack(GetOffsetFromEntityInWorldCoords(veh, 0.4, 0.0, 0.0))
+												elseif GetPedInVehicleSeat(veh, 1) == ped then
+													x2, y2, z2 = table.unpack(GetOffsetFromEntityInWorldCoords(veh, -0.4, -0.8, 0.0))
+												else
+													x2, y2, z2 = table.unpack(GetOffsetFromEntityInWorldCoords(veh, 0.4, -0.8, 0.0))
+												end
+											else
+												if GetPedInVehicleSeat(veh, -1) == ped then
+													x2, y2, z2 = table.unpack(GetOffsetFromEntityInWorldCoords(veh, 0.0, 0.0, 0.3))
+												else
+													x2, y2, z2 = table.unpack(GetOffsetFromEntityInWorldCoords(veh, 0.0, -0.5, 0.5))
+												end
+											end
+										else
+											x2, y2, z2 = table.unpack(GetEntityCoords(ped, true))
+										end
+		        						if NetworkIsPlayerTalking(id) then
+		        							DrawText3D(x2, y2, z2+1, playerData[sId].user_id, 144, 215, 255)
+		        						else
+		        							DrawText3D(x2, y2, z2+1, playerData[sId].user_id, 255, 255, 255)
+		        						end
+		        					end
+		        				end
+	                        end
+	    				end
+	    			end
+	            end
+	        end
+	        Citizen.Wait(0)
+	    end
+	end)
 
-                if(ignorePlayerNameDistance) then
-					if NetworkIsPlayerTalking(id) then
-						red = 0
-						green = 0
-						blue = 255
-						DrawText3D(x2, y2, z2 + displayIDHeight, GetPlayerServerId(id))
-					else
-						red = 255
-						green = 255
-						blue = 255
-						DrawText3D(x2, y2, z2 + displayIDHeight, GetPlayerServerId(id))
-					end
-                end
+	Citizen.CreateThread(function()
+	    while true do
+	        for _, id in ipairs(GetActivePlayers()) do
+	            if NetworkIsPlayerActive(id) then
+	            	local selfPed = GetPlayerPed(-1)
+	            	local userPed = GetPlayerPed(id)
+	                if userPed ~= selfPed then
+                        local x1, y1, z1 = table.unpack(GetEntityCoords(selfPed, true))
+                        local x2, y2, z2 = table.unpack(GetEntityCoords(userPed, true))
+                        local distance = math.floor(GetDistanceBetweenCoords(x1,  y1,  z1,  x2,  y2,  z2,  true))
 
-                if ((distance < playerNamesDist)) then
-                    if not (ignorePlayerNameDistance) then
-						if NetworkIsPlayerTalking(id) then
-							red = 0
-							green = 0
-							blue = 255
-							DrawText3D(x2, y2, z2 + displayIDHeight, GetPlayerServerId(id))
-						else
-							red = 255
-							green = 255
-							blue = 255
-							DrawText3D(x2, y2, z2 + displayIDHeight, GetPlayerServerId(id))
-						end
-                    end
-                end  
-            end
-        end
-        elseif not IsControlPressed(1, 48) then
-            DrawText3D(0, 0, 0, "")
-        end
-    end
+                        if playerData[GetPlayerServerId(id)] then
+                        	playerData[GetPlayerServerId(id)].dst = distance
+                        end
+	                end
+	            end
+	        end
+	        Citizen.Wait(3000)
+	    end
+	end)
+end)
+
+RegisterNetEvent("id:initPlayer")
+AddEventHandler("id:initPlayer", function(src, uid)
+	playerData[src] = {user_id = uid}
+end)
+
+RegisterNetEvent("id:removePlayer")
+AddEventHandler("id:removePlayer", function(src)
+	playerData[src] = nil
 end)
